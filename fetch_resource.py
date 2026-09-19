@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from dataclasses import dataclass
 from urllib.parse import quote
@@ -15,6 +16,13 @@ from requests.auth import HTTPBasicAuth
 DEFAULT_PROTOCOL = "https"
 DEFAULT_TIMEOUT = 30.0
 ALLOWED_PROTOCOLS = ("http", "https")
+JAVA_IMPORT_PATTERN = re.compile(
+    r"^\s*import\s+(?P<static>static\s+)?"
+    r"(?P<name>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)"
+    r"(?P<wildcard>\.\*)?\s*;",
+    re.MULTILINE,
+)
+STANDARD_LIBRARY_PREFIXES = ("java.", "javax.", "sun.", "com.sun.")
 
 
 class ConfigError(ValueError):
@@ -92,6 +100,52 @@ def class_name_to_resource_path(class_name: str) -> str:
     return "/".join(segments) + extension
 
 
+def extract_imports(source: str) -> list[str]:
+    """Return explicit non-platform Java class imports from source text."""
+    dependencies: list[str] = []
+    for match in JAVA_IMPORT_PATTERN.finditer(source):
+        if match.group("wildcard"):
+            continue
+
+        imported_name = match.group("name")
+        if match.group("static"):
+            imported_name = imported_name.rsplit(".", 1)[0]
+        if imported_name.startswith(STANDARD_LIBRARY_PREFIXES) or imported_name in dependencies:
+            continue
+        dependencies.append(imported_name)
+    return dependencies
+
+
+def fetch_class_sources(
+    class_name: str,
+    config: Config,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> list[tuple[str, str]]:
+    """Fetch a class and its direct project dependencies."""
+    sources = [(class_name, fetch_resource(class_name_to_resource_path(class_name), config, timeout))]
+    fetched_names = {class_name}
+
+    for dependency_name in extract_imports(sources[0][1]):
+        if dependency_name in fetched_names:
+            continue
+        fetched_names.add(dependency_name)
+        try:
+            dependency_body = fetch_resource(
+                class_name_to_resource_path(dependency_name), config, timeout
+            )
+        except (ConfigError, requests.RequestException) as exc:
+            print(f"Warning: could not fetch dependency {dependency_name}: {exc}", file=sys.stderr)
+            continue
+        sources.append((dependency_name, dependency_body))
+
+    return sources
+
+
+def format_class_sources(sources: list[tuple[str, str]]) -> str:
+    """Format fetched class bodies with fully qualified class-name headers."""
+    return "\n\n".join(f"===== {class_name} =====\n{body}" for class_name, body in sources)
+
+
 def fetch_resource(
     resource_path: str,
     config: Config,
@@ -144,8 +198,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         config = load_config(args.protocol, args.domain, args.version)
-        resource_path = class_name_to_resource_path(args.class_name)
-        body = fetch_resource(resource_path, config, args.timeout)
+        sources = fetch_class_sources(args.class_name, config, args.timeout)
+        body = format_class_sources(sources)
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         return 2
