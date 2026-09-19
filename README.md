@@ -24,6 +24,11 @@ $env:RESOURCE_PASSWORD = "your-password"
 
 `RESOURCE_PROTOCOL` is optional and defaults to `https`.
 
+The domain may include a safe base path. For example, setting
+`$env:RESOURCE_DOMAIN = "repo.example.com/other"` places that base path before the version and
+class resource path, producing a URL such as
+`https://repo.example.com/other/25.6.7/com/test/Test.java`.
+
 ## Usage
 
 Pass a fully qualified class name. The script converts package separators to `/`, fetches the
@@ -51,7 +56,7 @@ Protocol, domain, version, timeout, and output path can also be supplied on the 
 python .\fetch_resource.py `
   com.example.Example `
   --protocol https `
-  --domain repo.example.com `
+  --domain repo.example.com/other `
   --version 27.1.0 `
   --timeout 30 `
   --output dependencies.zip

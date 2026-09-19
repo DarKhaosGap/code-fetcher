@@ -6,6 +6,8 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 
 ## Requirements
 - Compose URLs from a protocol, domain, version, and a full dotted class name.
+- Allow the domain to include a safe base path, such as `domain.com/other`, before the version
+  and class resource path.
 - Read protocol, domain, version, and credentials from environment variables, with CLI overrides for
   protocol, domain, version, timeout, and output path.
 - Convert `com.example.Example` to `com/example/Example` and preserve a terminal `.java` suffix.
@@ -25,6 +27,7 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 ## Scope
 - `fetch_resource.py`: CLI entry point, configuration, URL construction, dependency discovery,
   HTTP fetching, and ZIP archive output.
+- `tests/test_fetch_resource.py`: unit tests for domain URL composition and validation.
 - `requirements.txt`: declares the `requests` dependency.
 - `README.md`: documents environment setup and command-line usage.
 
@@ -34,6 +37,8 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 - `class_name_to_resource_path()` validates dotted class names and converts them to slash-separated
   resource paths.
 - `build_url()` quotes each URL path segment and accepts only `http` and `https` protocols.
+- `build_url()` accepts a host with optional base-path segments, while rejecting credentials,
+  queries, fragments, empty segments, and `..` traversal segments.
 - `extract_imports()` parses explicit Java imports, resolves static imports to their owning class,
   removes duplicates, and filters wildcard/platform imports.
 - `fetch_class_sources()` fetches the root class followed by its direct dependencies. Dependency
@@ -51,6 +56,8 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
   fetch ordering, and tagged-output behavior before archive output was introduced.
 - ZIP checks passed for simple-name conversion, `.java` normalization, UTF-8 content, and duplicate
   filename rejection.
+- Unit tests cover plain-host and base-path URL composition plus unsafe-domain rejection.
+- `.venv\Scripts\python.exe -m unittest discover -s tests -v` passed with four tests.
 - `git diff --check` passed.
 - CLI help could not be executed because `requests` was not installed in the validation environment.
 - No real network call was executed.

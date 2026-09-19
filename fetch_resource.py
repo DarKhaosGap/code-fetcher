@@ -9,7 +9,7 @@ import re
 import sys
 import zipfile
 from dataclasses import dataclass
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlsplit
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -70,20 +70,48 @@ def load_config(
 
 def build_url(config: Config, resource_path: str) -> str:
     """Compose protocol, domain, version and resource path into an absolute URL."""
-    domain = config.domain.strip().strip("/")
-    if "/" in domain or "@" in domain:
-        raise ConfigError(f"Invalid domain {config.domain!r}; expected a host name only.")
+    domain = config.domain.strip()
+    try:
+        parsed_domain = urlsplit(f"//{domain}")
+        hostname = parsed_domain.hostname
+    except ValueError as exc:
+        raise ConfigError(f"Invalid domain {config.domain!r}; expected a valid host.") from exc
+    if (
+        not hostname
+        or parsed_domain.username is not None
+        or parsed_domain.password is not None
+        or parsed_domain.query
+        or parsed_domain.fragment
+        or "\\" in domain
+    ):
+        raise ConfigError(
+            f"Invalid domain {config.domain!r}; expected a host with an optional base path."
+        )
+
+    try:
+        parsed_domain.port
+    except ValueError as exc:
+        raise ConfigError(f"Invalid domain {config.domain!r}; port is not valid.") from exc
+
+    raw_base_segments = parsed_domain.path.split("/")
+    interior_segments = raw_base_segments[1:-1]
+    if (
+        any(not segment for segment in interior_segments)
+        or any(unquote(segment) in (".", "..") for segment in raw_base_segments if segment)
+    ):
+        raise ConfigError(f"Invalid domain {config.domain!r}; base path contains an unsafe segment.")
+    base_segments = [segment for segment in raw_base_segments if segment]
 
     # Percent-encode each segment so the caller cannot alter the host, query or fragment.
     segments = [
         quote(segment, safe="")
-        for segment in (config.version, *resource_path.split("/"))
+        for segment in (*base_segments, config.version, *resource_path.split("/"))
         if segment
     ]
     if not segments[1:]:
         raise ConfigError("Resource path must contain at least one segment.")
 
-    return f"{config.protocol}://{domain}/" + "/".join(segments)
+    return f"{config.protocol}://{parsed_domain.netloc}/" + "/".join(segments)
 
 
 def class_name_to_resource_path(class_name: str) -> str:
