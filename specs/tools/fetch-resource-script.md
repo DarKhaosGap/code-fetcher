@@ -1,62 +1,60 @@
 # Fetch Resource Script
 
 ## Summary
-Add a Python CLI script that performs an authenticated HTTP GET request against a versioned
-repository-style endpoint and returns the response body as a string.
+Provide a Python CLI that fetches a Java class and its direct project dependencies from a versioned
+repository-style endpoint, then writes the successful responses to a ZIP archive.
 
 ## Requirements
-- URL is composed from a protocol (default `https`), a domain, a version (e.g. `27.1.0`) and a
-  resource path derived from a full class name (e.g. `com.example.Example` becomes
-  `com/example/Example`).
-- Protocol, domain and version are read from environment variables.
-- Version can be overridden with an optional command line argument.
-- A full dotted class name is a mandatory positional argument. A terminal `.java` suffix is
-  preserved, so `com.example.Example.java` becomes `com/example/Example.java`.
-- Empty class-name segments and slash-separated input are rejected.
-- After fetching the requested class, the script fetches each directly imported project class once.
-  packages such as `java.*`, `javax.*`, `sun.*`, and `com.sun.*` are skipped.
- Successfully fetched sources are written to a ZIP archive selected with `--output` (default
-- Requests use HTTP basic authentication with credentials from environment variables.
- ZIP entries use the simple class name without packages and always use the `.java` extension.
- Duplicate simple class names are rejected instead of being overwritten.
-- Missing required configuration or HTTP errors exit with a non-zero status and a message on stderr.
+- Compose URLs from a protocol, domain, version, and a full dotted class name.
+- Read protocol, domain, version, and credentials from environment variables, with CLI overrides for
+  protocol, domain, version, timeout, and output path.
+- Convert `com.example.Example` to `com/example/Example` and preserve a terminal `.java` suffix.
+- Reject empty class-name segments and slash-separated input.
+- Fetch the requested class and each unique direct project import once; do not recurse into
+  transitive dependencies.
+- Include explicit ordinary and static imports, while skipping wildcard and standard-library
+  packages such as `java.*`, `javax.*`, `sun.*`, and `com.sun.*`.
+- Continue with a warning when a dependency cannot be fetched; a root-class failure remains fatal.
+- Write successful responses to a ZIP archive. Use simple class filenames without packages and
+  always use the `.java` extension.
+- Reject duplicate simple filenames instead of overwriting entries.
+- Use HTTP basic authentication and an explicit request timeout.
+- Return non-zero status with a message on stderr for configuration, root request, or archive
+  errors. Never log or echo credentials.
 
- `class_name_to_filename()` removes package names and normalizes each entry to a `.java` filename.
 ## Scope
-- `fetch_resource.py` (new): CLI entry point and reusable `fetch_resource` function.
+- `fetch_resource.py`: CLI entry point, configuration, URL construction, dependency discovery,
+  HTTP fetching, and ZIP archive output.
+- `requirements.txt`: declares the `requests` dependency.
 
- `--timeout` and `--output` overrides. The CLI writes the collected sources to the output ZIP.
- Missing dependency requests produce warnings and do not prevent other classes from being archived.
-- Configuration is resolved in `load_config()` from environment variables:
-  `RESOURCE_PROTOCOL` (default `https`), `RESOURCE_DOMAIN`, `RESOURCE_VERSION`,
-  `RESOURCE_USERNAME`, `RESOURCE_PASSWORD`. A missing required value raises `ConfigError`.
-- `build_url()` normalizes the domain and resource path and uses `urllib.parse.quote` on the path
-  segments so user input cannot inject a different host or query string. Only `http`/`https` are
-  accepted as protocols.
-- `fetch_resource()` uses `requests.get` with `HTTPBasicAuth`, an explicit timeout, and
-  `raise_for_status()`. The response encoding falls back to `utf-8` when the server does not
-  declare one, so the returned value is a deterministic string.
-- `class_name_to_resource_path()` converts the dotted class name into a slash-separated resource
-  path and validates the input before URL construction.
-- `extract_imports()` identifies unique explicit project imports from Java source and omits wildcard
-  and standard-library imports.
-- `fetch_class_sources()` fetches the root class and its direct dependencies without recursive
-  traversal. `format_class_sources()` prints each successful source body under a fully qualified
-  class-name header.
-- `argparse` exposes `class_name` as positional, plus `--version`, `--protocol`, `--domain` and
-  `--timeout` overrides. The CLI converts `class_name` before calling `fetch_resource()`.
-- Credentials are never logged or echoed.
+## Implementation
+- `load_config()` resolves `RESOURCE_PROTOCOL`, `RESOURCE_DOMAIN`, `RESOURCE_VERSION`,
+  `RESOURCE_USERNAME`, and `RESOURCE_PASSWORD`, defaulting the protocol to `https`.
+- `class_name_to_resource_path()` validates dotted class names and converts them to slash-separated
+  resource paths.
+- `build_url()` quotes each URL path segment and accepts only `http` and `https` protocols.
+- `extract_imports()` parses explicit Java imports, resolves static imports to their owning class,
+  removes duplicates, and filters wildcard/platform imports.
+- `fetch_class_sources()` fetches the root class followed by its direct dependencies. Dependency
+  request failures are reported as warnings and skipped.
+- `class_name_to_filename()` removes packages and normalizes each class to a `.java` filename.
+- `write_sources_zip()` writes UTF-8 response bodies with `zipfile`, detects duplicate filenames,
+  and reports filesystem/archive errors through `ConfigError`.
+- `argparse` accepts the class name as a positional argument and `--output` defaults to
+  `dependencies.zip`.
+- The CLI reports the number of archived class sources and the output path on stdout.
 
 ## Validation
-- `python -m py_compile fetch_resource.py` succeeds.
-- The CLI help describes a fully qualified class name such as `com.example.Example`.
-- Conversion behavior is implemented for plain class names and `.java` names; malformed and
-  slash-separated inputs raise `ConfigError`.
-- Isolated dependency checks confirm import filtering, static-import handling, deduplication, one
-  fetch per direct dependency, and tagged output without network access.
-- No network call was executed against a real endpoint.
+- `python -m py_compile fetch_resource.py` passed.
+- Isolated dependency checks passed for import filtering, static imports, deduplication, direct
+  fetch ordering, and tagged-output behavior before archive output was introduced.
+- ZIP checks passed for simple-name conversion, `.java` normalization, UTF-8 content, and duplicate
+  filename rejection.
+- `git diff --check` passed.
+- CLI help could not be executed because `requests` was not installed in the validation environment.
+- No real network call was executed.
 
 ## Status
-Complete. Runtime conversion assertions were not executed because the local environment did not
-have the declared `requests` dependency installed. Retries/backoff and proxy configuration are
+Complete. Direct dependency fetching, warning behavior, and ZIP archive output are implemented.
+Retries, backoff, recursive dependency traversal, wildcard resolution, and proxy configuration are
 out of scope.
