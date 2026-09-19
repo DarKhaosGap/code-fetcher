@@ -26,6 +26,7 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 - `fetch_resource.py`: CLI entry point, configuration, URL construction, dependency discovery,
   HTTP fetching, and ZIP archive output.
 - `requirements.txt`: declares the `requests` dependency.
+- `README.md`: documents environment setup and command-line usage.
 
 ## Implementation
 - `load_config()` resolves `RESOURCE_PROTOCOL`, `RESOURCE_DOMAIN`, `RESOURCE_VERSION`,
@@ -55,6 +56,7 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 - No real network call was executed.
 
 ## Status
-Complete. Direct dependency fetching, warning behavior, and ZIP archive output are implemented.
+Complete. Direct dependency fetching, warning behavior, ZIP archive output, and README usage
+documentation are implemented.
 Retries, backoff, recursive dependency traversal, wildcard resolution, and proxy configuration are
 out of scope.

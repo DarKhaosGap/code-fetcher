@@ -1,0 +1,58 @@
+# Fetch Resource
+
+A Python CLI that fetches a Java class and its direct project dependencies, then writes the
+successful responses to a ZIP archive.
+
+## Setup
+
+Create and activate a virtual environment in PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+Set the required connection variables:
+
+```powershell
+$env:RESOURCE_DOMAIN = "repo.example.com"
+$env:RESOURCE_VERSION = "27.1.0"
+$env:RESOURCE_USERNAME = "your-username"
+$env:RESOURCE_PASSWORD = "your-password"
+```
+
+`RESOURCE_PROTOCOL` is optional and defaults to `https`.
+
+## Usage
+
+Pass a fully qualified class name. The script converts package separators to `/`, fetches the
+class and its direct project imports, and writes the results to a ZIP archive:
+
+```powershell
+python .\fetch_resource.py com.example.Example --output dependencies.zip
+```
+
+Classes are stored using simple `.java` filenames, such as `Example.java`. Duplicate simple class
+names are rejected. Missing dependency requests produce warnings; failure to fetch the requested
+root class exits with an error.
+
+View all command-line options:
+
+```powershell
+python .\fetch_resource.py --help
+```
+
+## Configuration Overrides
+
+Protocol, domain, version, timeout, and output path can also be supplied on the command line:
+
+```powershell
+python .\fetch_resource.py `
+  com.example.Example `
+  --protocol https `
+  --domain repo.example.com `
+  --version 27.1.0 `
+  --timeout 30 `
+  --output dependencies.zip
+```

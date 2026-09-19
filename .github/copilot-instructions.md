@@ -15,7 +15,7 @@ After editing project files:
 2. Record validation performed, including tests, builds, linting, or any remaining limitations.
 3. Keep the specification accurate as the implementation evolves.
 
-Changes related to GitHub workflows, configuration, metadata, or repository setup, including files under `.github/`, as well as changes to `.github/copilot-instructions.md` and files under `specs/`, are exempt from this recording requirement.
+Changes related to GitHub workflows, configuration, metadata, or repository setup, including files under `.github/`, as well as changes to `.github/copilot-instructions.md`, `README.md`, and files under `specs/`, are exempt from this recording requirement.
 
 ## Spec File Conventions
 
