@@ -77,6 +77,21 @@ def build_url(config: Config, resource_path: str) -> str:
     return f"{config.protocol}://{domain}/" + "/".join(segments)
 
 
+def class_name_to_resource_path(class_name: str) -> str:
+    """Convert a dotted Java class name into a slash-separated resource path."""
+    value = class_name.strip()
+    if not value or "/" in value or "\\" in value:
+        raise ConfigError("Class name must be a dotted name without path separators.")
+
+    extension = ".java" if value.endswith(".java") else ""
+    base_name = value[: -len(extension)] if extension else value
+    segments = base_name.split(".")
+    if len(segments) < 2 or any(not segment for segment in segments):
+        raise ConfigError("Class name must include a package and class name.")
+
+    return "/".join(segments) + extension
+
+
 def fetch_resource(
     resource_path: str,
     config: Config,
@@ -105,8 +120,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         )
     )
     parser.add_argument(
-        "resource_path",
-        help="Resource path to fetch, e.g. /com/example/Example.java",
+        "class_name",
+        help="Fully qualified class name to fetch, e.g. com.example.Example",
     )
     parser.add_argument(
         "-v",
@@ -129,7 +144,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         config = load_config(args.protocol, args.domain, args.version)
-        body = fetch_resource(args.resource_path, config, args.timeout)
+        resource_path = class_name_to_resource_path(args.class_name)
+        body = fetch_resource(resource_path, config, args.timeout)
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         return 2
