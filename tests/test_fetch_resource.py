@@ -29,6 +29,12 @@ class BuildUrlTests(unittest.TestCase):
 
     def test_plain_domain_preserves_existing_url_shape(self):
         self.assertEqual(
+            build_url(self.config, "com/test/Test"),
+            "https://domain.com/25.6.7/com/test/Test.java",
+        )
+
+    def test_existing_java_suffix_is_not_duplicated(self):
+        self.assertEqual(
             build_url(self.config, "com/test/Test.java"),
             "https://domain.com/25.6.7/com/test/Test.java",
         )

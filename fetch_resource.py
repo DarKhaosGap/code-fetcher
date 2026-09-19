@@ -102,14 +102,18 @@ def build_url(config: Config, resource_path: str) -> str:
         raise ConfigError(f"Invalid domain {config.domain!r}; base path contains an unsafe segment.")
     base_segments = [segment for segment in raw_base_segments if segment]
 
+    resource_path = resource_path.strip().rstrip("/")
+    if not resource_path or not any(resource_path.split("/")):
+        raise ConfigError("Resource path must contain at least one segment.")
+    if not resource_path.endswith(".java"):
+        resource_path += ".java"
+
     # Percent-encode each segment so the caller cannot alter the host, query or fragment.
     segments = [
         quote(segment, safe="")
         for segment in (*base_segments, config.version, *resource_path.split("/"))
         if segment
     ]
-    if not segments[1:]:
-        raise ConfigError("Resource path must contain at least one segment.")
 
     return f"{config.protocol}://{parsed_domain.netloc}/" + "/".join(segments)
 

@@ -11,6 +11,8 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 - Read protocol, domain, version, and credentials from environment variables, with CLI overrides for
   protocol, domain, version, timeout, and output path.
 - Convert `com.example.Example` to `com/example/Example` and preserve a terminal `.java` suffix.
+- Ensure every requested resource URL ends with `.java`, adding the suffix when the resource path
+  does not already include it.
 - Reject empty class-name segments and slash-separated input.
 - Fetch the requested class and each unique direct project import once; do not recurse into
   transitive dependencies.
@@ -39,6 +41,7 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 - `build_url()` quotes each URL path segment and accepts only `http` and `https` protocols.
 - `build_url()` accepts a host with optional base-path segments, while rejecting credentials,
   queries, fragments, empty segments, and `..` traversal segments.
+- `build_url()` normalizes the final resource path segment to end in `.java` before URL encoding.
 - `extract_imports()` parses explicit Java imports, resolves static imports to their owning class,
   removes duplicates, and filters wildcard/platform imports.
 - `fetch_class_sources()` fetches the root class followed by its direct dependencies. Dependency
@@ -57,7 +60,8 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 - ZIP checks passed for simple-name conversion, `.java` normalization, UTF-8 content, and duplicate
   filename rejection.
 - Unit tests cover plain-host and base-path URL composition plus unsafe-domain rejection.
-- `.venv\Scripts\python.exe -m unittest discover -s tests -v` passed with four tests.
+- Unit tests cover adding `.java` to extensionless resource paths and preserving an existing suffix.
+- `.venv\Scripts\python.exe -m unittest discover -s tests -v` passed with five tests.
 - `git diff --check` passed.
 - CLI help could not be executed because `requests` was not installed in the validation environment.
 - No real network call was executed.
