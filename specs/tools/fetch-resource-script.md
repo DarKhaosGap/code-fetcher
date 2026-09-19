@@ -14,18 +14,19 @@ repository-style endpoint and returns the response body as a string.
   preserved, so `com.example.Example.java` becomes `com/example/Example.java`.
 - Empty class-name segments and slash-separated input are rejected.
 - After fetching the requested class, the script fetches each directly imported project class once.
-- Explicit ordinary and static imports are supported; wildcard imports and standard-library
   packages such as `java.*`, `javax.*`, `sun.*`, and `com.sun.*` are skipped.
-- Missing dependency requests produce warnings and do not prevent other classes from being printed.
+ Successfully fetched sources are written to a ZIP archive selected with `--output` (default
 - Requests use HTTP basic authentication with credentials from environment variables.
-- The function returns the response body as a string; the CLI prints it to stdout.
+ ZIP entries use the simple class name without packages and always use the `.java` extension.
+ Duplicate simple class names are rejected instead of being overwritten.
 - Missing required configuration or HTTP errors exit with a non-zero status and a message on stderr.
 
+ `class_name_to_filename()` removes package names and normalizes each entry to a `.java` filename.
 ## Scope
 - `fetch_resource.py` (new): CLI entry point and reusable `fetch_resource` function.
-- `requirements.txt` (new): declares the `requests` dependency.
 
-## Implementation
+ `--timeout` and `--output` overrides. The CLI writes the collected sources to the output ZIP.
+ Missing dependency requests produce warnings and do not prevent other classes from being archived.
 - Configuration is resolved in `load_config()` from environment variables:
   `RESOURCE_PROTOCOL` (default `https`), `RESOURCE_DOMAIN`, `RESOURCE_VERSION`,
   `RESOURCE_USERNAME`, `RESOURCE_PASSWORD`. A missing required value raises `ConfigError`.

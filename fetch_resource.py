@@ -7,6 +7,7 @@ import argparse
 import os
 import re
 import sys
+import zipfile
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -146,6 +147,30 @@ def format_class_sources(sources: list[tuple[str, str]]) -> str:
     return "\n\n".join(f"===== {class_name} =====\n{body}" for class_name, body in sources)
 
 
+def class_name_to_filename(class_name: str) -> str:
+    """Convert a fully qualified class name into a simple Java source filename."""
+    base_name = class_name.removesuffix(".java")
+    simple_name = base_name.rsplit(".", 1)[-1]
+    return f"{simple_name}.java"
+
+
+def write_sources_zip(sources: list[tuple[str, str]], output_path: str) -> None:
+    """Write fetched class sources to a ZIP archive using simple class filenames."""
+    filenames = [class_name_to_filename(class_name) for class_name, _ in sources]
+    duplicates = {name for name in filenames if filenames.count(name) > 1}
+    if duplicates:
+        raise ConfigError(
+            "Duplicate class filenames: " + ", ".join(sorted(duplicates))
+        )
+
+    try:
+        with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for filename, (_, body) in zip(filenames, sources):
+                archive.writestr(filename, body)
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise ConfigError(f"Could not write output ZIP {output_path!r}: {exc}") from exc
+
+
 def fetch_resource(
     resource_path: str,
     config: Config,
@@ -191,6 +216,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_TIMEOUT,
         help=f"Request timeout in seconds (default: {DEFAULT_TIMEOUT})",
     )
+    parser.add_argument(
+        "--output",
+        default="dependencies.zip",
+        help="Output ZIP path (default: dependencies.zip)",
+    )
     return parser.parse_args(argv)
 
 
@@ -199,7 +229,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         config = load_config(args.protocol, args.domain, args.version)
         sources = fetch_class_sources(args.class_name, config, args.timeout)
-        body = format_class_sources(sources)
+        write_sources_zip(sources, args.output)
+        print(f"Wrote {len(sources)} class source(s) to {args.output}")
     except ConfigError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         return 2
@@ -211,7 +242,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Request failed: {exc.__class__.__name__}.", file=sys.stderr)
         return 1
 
-    print(body)
     return 0
 
 
