@@ -1,6 +1,9 @@
 import sys
+import tempfile
 import types
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 try:
     import requests  # noqa: F401
@@ -14,7 +17,7 @@ except ModuleNotFoundError:
     sys.modules["requests"] = requests_stub
     sys.modules["requests.auth"] = auth_stub
 
-from fetch_resource import Config, ConfigError, build_url
+from fetch_resource import Config, ConfigError, build_url, fetch_class_sources
 
 
 class BuildUrlTests(unittest.TestCase):
@@ -67,6 +70,32 @@ class BuildUrlTests(unittest.TestCase):
         ):
             with self.subTest(domain=domain), self.assertRaises(ConfigError):
                 build_url(self.config.__class__(**{**self.config.__dict__, "domain": domain}), "com/test/Test.java")
+
+
+class LocalSourceTests(unittest.TestCase):
+    def test_uses_local_sources_then_fetches_missing_dependency_remotely(self):
+        config = Config("https", "domain.com", "1.0", "user", "pass")
+        with tempfile.TemporaryDirectory() as folder:
+            source_root = Path(folder) / "src" / "main" / "java" / "com" / "example"
+            source_root.mkdir(parents=True)
+            (source_root / "Example.java").write_text(
+                "import com.example.Local;\nimport com.remote.Remote;\nclass Example {}",
+                encoding="utf-8",
+            )
+            (source_root / "Local.java").write_text("class Local {}", encoding="utf-8")
+
+            with patch("fetch_resource.fetch_resource", return_value="class Remote {}") as fetch:
+                sources = fetch_class_sources("com.example.Example", config, source_folder=folder)
+
+        self.assertEqual(
+            sources,
+            [
+                ("com.example.Example", "import com.example.Local;\nimport com.remote.Remote;\nclass Example {}"),
+                ("com.example.Local", "class Local {}"),
+                ("com.remote.Remote", "class Remote {}"),
+            ],
+        )
+        fetch.assert_called_once_with("com/remote/Remote", config, 30.0)
 
 
 if __name__ == "__main__":

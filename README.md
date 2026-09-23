@@ -42,6 +42,16 @@ Classes are stored using simple `.java` filenames, such as `Example.java`. Dupli
 names are rejected. Missing dependency requests produce warnings; failure to fetch the requested
 root class exits with an error.
 
+To prefer sources from a local project, pass its root folder. The script searches recursively, so
+standard layouts such as `src/main/java/com/example/Example.java` are supported. Classes that are
+not present locally continue to use the configured remote endpoint:
+
+```powershell
+python .\fetch_resource.py com.example.Example `
+  --source-folder C:\Projects\example `
+  --output dependencies.zip
+```
+
 View all command-line options:
 
 ```powershell
@@ -59,5 +69,6 @@ python .\fetch_resource.py `
   --domain repo.example.com/other `
   --version 27.1.0 `
   --timeout 30 `
+  --source-folder C:\Projects\example `
   --output dependencies.zip
 ```

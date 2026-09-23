@@ -2,7 +2,8 @@
 
 ## Summary
 Provide a Python CLI that fetches a Java class and its direct project dependencies from a versioned
-repository-style endpoint, then writes the successful responses to a ZIP archive.
+repository-style endpoint, optionally preferring matching sources from a local project folder, then
+writes the successful responses to a ZIP archive.
 
 ## Requirements
 - Compose URLs from a protocol, domain, version, and a full dotted class name.
@@ -16,6 +17,9 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 - Reject empty class-name segments and slash-separated input.
 - Fetch the requested class and each unique direct project import once; do not recurse into
   transitive dependencies.
+- When a source folder is provided, resolve the requested class and direct dependencies from Java
+  files beneath that folder before falling back to the existing remote fetch behavior.
+- Support project roots containing Java source layouts such as `src/main/java/com/example/Example.java`.
 - Include explicit ordinary and static imports, while skipping wildcard and standard-library
   packages such as `java.*`, `javax.*`, `sun.*`, and `com.sun.*`.
 - Continue with a warning when a dependency cannot be fetched; a root-class failure remains fatal.
@@ -28,8 +32,9 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 
 ## Scope
 - `fetch_resource.py`: CLI entry point, configuration, URL construction, dependency discovery,
-  HTTP fetching, and ZIP archive output.
-- `tests/test_fetch_resource.py`: unit tests for domain URL composition and validation.
+  local source lookup, HTTP fetching, and ZIP archive output.
+- `tests/test_fetch_resource.py`: unit tests for domain URL composition, validation, and local-first
+  source resolution with remote fallback.
 - `requirements.txt`: declares the `requests` dependency.
 - `README.md`: documents environment setup and command-line usage.
 
@@ -44,13 +49,16 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
 - `build_url()` normalizes the final resource path segment to end in `.java` before URL encoding.
 - `extract_imports()` parses explicit Java imports, resolves static imports to their owning class,
   removes duplicates, and filters wildcard/platform imports.
-- `fetch_class_sources()` fetches the root class followed by its direct dependencies. Dependency
-  request failures are reported as warnings and skipped.
+- `read_local_class_source()` searches the supplied project folder recursively for a path matching
+  the class package and filename, reads a unique UTF-8 match, and rejects ambiguous matches.
+- `fetch_class_sources()` resolves the root class followed by its direct dependencies from local
+  sources first, falling back to remote requests for classes not found locally. Dependency lookup
+  failures are reported as warnings and skipped.
 - `class_name_to_filename()` removes packages and normalizes each class to a `.java` filename.
 - `write_sources_zip()` writes UTF-8 response bodies with `zipfile`, detects duplicate filenames,
   and reports filesystem/archive errors through `ConfigError`.
-- `argparse` accepts the class name as a positional argument and `--output` defaults to
-  `dependencies.zip`.
+- `argparse` accepts the class name as a positional argument, `--source-folder` as the optional
+  local project root, and `--output` defaults to `dependencies.zip`.
 - The CLI reports the number of archived class sources and the output path on stdout.
 
 ## Validation
@@ -61,13 +69,14 @@ repository-style endpoint, then writes the successful responses to a ZIP archive
   filename rejection.
 - Unit tests cover plain-host and base-path URL composition plus unsafe-domain rejection.
 - Unit tests cover adding `.java` to extensionless resource paths and preserving an existing suffix.
-- `.venv\Scripts\python.exe -m unittest discover -s tests -v` passed with five tests.
+- `python -m unittest discover -s tests -v` passed with six tests.
+- Unit tests verify recursive local lookup beneath `src/main/java`, local dependency loading, and
+  remote fallback only for a dependency absent from the supplied folder.
 - `git diff --check` passed.
 - CLI help could not be executed because `requests` was not installed in the validation environment.
 - No real network call was executed.
 
 ## Status
-Complete. Direct dependency fetching, warning behavior, ZIP archive output, and README usage
-documentation are implemented.
+Complete. Optional local-first source resolution and remote fallback are implemented and documented.
 Retries, backoff, recursive dependency traversal, wildcard resolution, and proxy configuration are
 out of scope.

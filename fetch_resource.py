@@ -9,6 +9,7 @@ import re
 import sys
 import zipfile
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 
 import requests
@@ -149,13 +150,50 @@ def extract_imports(source: str) -> list[str]:
     return dependencies
 
 
+def read_local_class_source(class_name: str, source_folder: str | None) -> str | None:
+    """Read a class source beneath a project folder, if it is present."""
+    if source_folder is None:
+        return None
+
+    folder = Path(source_folder)
+    if not folder.is_dir():
+        raise ConfigError(f"Source folder {source_folder!r} is not a directory.")
+
+    relative_path = Path(class_name_to_resource_path(class_name)).with_suffix(".java")
+    direct_path = folder / relative_path
+    candidates = [direct_path] if direct_path.is_file() else []
+    if not candidates:
+        candidates = [
+            path
+            for path in folder.rglob(relative_path.name)
+            if path.is_file() and path.parts[-len(relative_path.parts) :] == relative_path.parts
+        ]
+
+    if not candidates:
+        return None
+    if len(candidates) > 1:
+        raise ConfigError(
+            f"Multiple local sources found for {class_name}: "
+            + ", ".join(str(path) for path in sorted(candidates))
+        )
+
+    try:
+        return candidates[0].read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigError(f"Could not read local source {str(candidates[0])!r}: {exc}") from exc
+
+
 def fetch_class_sources(
     class_name: str,
     config: Config,
     timeout: float = DEFAULT_TIMEOUT,
+    source_folder: str | None = None,
 ) -> list[tuple[str, str]]:
-    """Fetch a class and its direct project dependencies."""
-    sources = [(class_name, fetch_resource(class_name_to_resource_path(class_name), config, timeout))]
+    """Load a class and its direct project dependencies locally or remotely."""
+    root_body = read_local_class_source(class_name, source_folder)
+    if root_body is None:
+        root_body = fetch_resource(class_name_to_resource_path(class_name), config, timeout)
+    sources = [(class_name, root_body)]
     fetched_names = {class_name}
 
     for dependency_name in extract_imports(sources[0][1]):
@@ -163,9 +201,11 @@ def fetch_class_sources(
             continue
         fetched_names.add(dependency_name)
         try:
-            dependency_body = fetch_resource(
-                class_name_to_resource_path(dependency_name), config, timeout
-            )
+            dependency_body = read_local_class_source(dependency_name, source_folder)
+            if dependency_body is None:
+                dependency_body = fetch_resource(
+                    class_name_to_resource_path(dependency_name), config, timeout
+                )
         except (ConfigError, requests.RequestException) as exc:
             print(f"Warning: could not fetch dependency {dependency_name}: {exc}", file=sys.stderr)
             continue
@@ -253,6 +293,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="dependencies.zip",
         help="Output ZIP path (default: dependencies.zip)",
     )
+    parser.add_argument(
+        "--source-folder",
+        help="Project folder to search recursively for Java sources before fetching remotely",
+    )
     return parser.parse_args(argv)
 
 
@@ -260,7 +304,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         config = load_config(args.protocol, args.domain, args.version)
-        sources = fetch_class_sources(args.class_name, config, args.timeout)
+        sources = fetch_class_sources(
+            args.class_name, config, args.timeout, args.source_folder
+        )
         write_sources_zip(sources, args.output)
         print(f"Wrote {len(sources)} class source(s) to {args.output}")
     except ConfigError as exc:
