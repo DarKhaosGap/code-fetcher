@@ -1,7 +1,7 @@
 # Fetch Resource
 
 A Python CLI that fetches a Java class and its direct project dependencies, then writes the
-successful responses to a ZIP archive.
+successful responses to a text file.
 
 ## Setup
 
@@ -32,15 +32,14 @@ class resource path, producing a URL such as
 ## Usage
 
 Pass a fully qualified class name. The script converts package separators to `/`, fetches the
-class and its direct project imports, and writes the results to a ZIP archive:
+class and its direct project imports, and writes the results to a text file:
 
 ```powershell
-python .\fetch_resource.py com.example.Example --output dependencies.zip
+python .\fetch_resource.py com.example.Example --output dependencies.txt
 ```
 
-Classes are stored using simple `.java` filenames, such as `Example.java`. Duplicate simple class
-names are rejected. Missing dependency requests produce warnings; failure to fetch the requested
-root class exits with an error.
+Each source is preceded by a fully qualified class-name header. Missing dependency requests produce
+warnings; failure to fetch the requested root class exits with an error.
 
 To prefer sources from a local project, pass its root folder. The script searches recursively, so
 standard layouts such as `src/main/java/com/example/Example.java` are supported. Classes that are
@@ -49,7 +48,7 @@ not present locally continue to use the configured remote endpoint:
 ```powershell
 python .\fetch_resource.py com.example.Example `
   --source-folder C:\Projects\example `
-  --output dependencies.zip
+  --output dependencies.txt
 ```
 
 View all command-line options:
@@ -70,5 +69,5 @@ python .\fetch_resource.py `
   --version 27.1.0 `
   --timeout 30 `
   --source-folder C:\Projects\example `
-  --output dependencies.zip
+  --output dependencies.txt
 ```

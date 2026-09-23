@@ -3,7 +3,7 @@
 ## Summary
 Provide a Python CLI that fetches a Java class and its direct project dependencies from a versioned
 repository-style endpoint, optionally preferring matching sources from a local project folder, then
-writes the successful responses to a ZIP archive.
+writes the successful responses to a text file.
 
 ## Requirements
 - Compose URLs from a protocol, domain, version, and a full dotted class name.
@@ -23,16 +23,14 @@ writes the successful responses to a ZIP archive.
 - Include explicit ordinary and static imports, while skipping wildcard and standard-library
   packages such as `java.*`, `javax.*`, `sun.*`, and `com.sun.*`.
 - Continue with a warning when a dependency cannot be fetched; a root-class failure remains fatal.
-- Write successful responses to a ZIP archive. Use simple class filenames without packages and
-  always use the `.java` extension.
-- Reject duplicate simple filenames instead of overwriting entries.
+- Write successful responses to one UTF-8 text file with fully qualified class-name headers.
 - Use HTTP basic authentication and an explicit request timeout.
-- Return non-zero status with a message on stderr for configuration, root request, or archive
+- Return non-zero status with a message on stderr for configuration, root request, or output
   errors. Never log or echo credentials.
 
 ## Scope
 - `fetch_resource.py`: CLI entry point, configuration, URL construction, dependency discovery,
-  local source lookup, HTTP fetching, and ZIP archive output.
+  local source lookup, HTTP fetching, and text output.
 - `tests/test_fetch_resource.py`: unit tests for domain URL composition, validation, and local-first
   source resolution with remote fallback.
 - `requirements.txt`: declares the `requests` dependency.
@@ -54,19 +52,18 @@ writes the successful responses to a ZIP archive.
 - `fetch_class_sources()` resolves the root class followed by its direct dependencies from local
   sources first, falling back to remote requests for classes not found locally. Dependency lookup
   failures are reported as warnings and skipped.
-- `class_name_to_filename()` removes packages and normalizes each class to a `.java` filename.
-- `write_sources_zip()` writes UTF-8 response bodies with `zipfile`, detects duplicate filenames,
-  and reports filesystem/archive errors through `ConfigError`.
+- `format_class_sources()` combines source bodies with fully qualified class-name headers.
+- `write_sources_text()` writes the combined source text with UTF-8 encoding and reports filesystem
+  errors through `ConfigError`.
 - `argparse` accepts the class name as a positional argument, `--source-folder` as the optional
-  local project root, and `--output` defaults to `dependencies.zip`.
-- The CLI reports the number of archived class sources and the output path on stdout.
+  local project root, and `--output` defaults to `dependencies.txt`.
+- The CLI reports the number of written class sources and the output path on stdout.
 
 ## Validation
 - `python -m py_compile fetch_resource.py` passed.
 - Isolated dependency checks passed for import filtering, static imports, deduplication, direct
   fetch ordering, and tagged-output behavior before archive output was introduced.
-- ZIP checks passed for simple-name conversion, `.java` normalization, UTF-8 content, and duplicate
-  filename rejection.
+- Text output checks passed for class-name headers, multiple source bodies, and UTF-8 content.
 - Unit tests cover plain-host and base-path URL composition plus unsafe-domain rejection.
 - Unit tests cover adding `.java` to extensionless resource paths and preserving an existing suffix.
 - `python -m unittest discover -s tests -v` passed with six tests.
@@ -77,6 +74,7 @@ writes the successful responses to a ZIP archive.
 - No real network call was executed.
 
 ## Status
-Complete. Optional local-first source resolution and remote fallback are implemented and documented.
+Complete. Optional local-first source resolution, remote fallback, and combined text output are
+implemented and documented.
 Retries, backoff, recursive dependency traversal, wildcard resolution, and proxy configuration are
 out of scope.

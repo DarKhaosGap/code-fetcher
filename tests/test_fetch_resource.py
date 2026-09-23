@@ -17,7 +17,13 @@ except ModuleNotFoundError:
     sys.modules["requests"] = requests_stub
     sys.modules["requests.auth"] = auth_stub
 
-from fetch_resource import Config, ConfigError, build_url, fetch_class_sources
+from fetch_resource import (
+    Config,
+    ConfigError,
+    build_url,
+    fetch_class_sources,
+    write_sources_text,
+)
 
 
 class BuildUrlTests(unittest.TestCase):
@@ -96,6 +102,24 @@ class LocalSourceTests(unittest.TestCase):
             ],
         )
         fetch.assert_called_once_with("com/remote/Remote", config, 30.0)
+
+
+class TextOutputTests(unittest.TestCase):
+    def test_writes_all_sources_with_class_name_headers(self):
+        sources = [
+            ("com.example.Example", "class Example {}"),
+            ("com.example.Dependency", "class Dependency { String value = \"olá\"; }"),
+        ]
+        with tempfile.TemporaryDirectory() as folder:
+            output_path = Path(folder) / "dependencies.txt"
+            write_sources_text(sources, str(output_path))
+
+            self.assertEqual(
+                output_path.read_text(encoding="utf-8"),
+                "===== com.example.Example =====\nclass Example {}\n\n"
+                "===== com.example.Dependency =====\n"
+                "class Dependency { String value = \"olá\"; }",
+            )
 
 
 if __name__ == "__main__":
