@@ -52,6 +52,28 @@ python .\fetch_resource.py com.example.Example `
   --output dependencies.txt
 ```
 
+## Find Related Jira Stories
+
+The standalone `find_related_stories.py` script lists Jira Cloud ticket keys for issues of type
+`Story` in the specified projects when any supplied keyword appears in the summary or description.
+It searches all pages, lists each ticket once, and prints a total count. Set the Jira connection
+variables:
+
+```bash
+export JIRA_BASE_URL="https://your-domain.atlassian.net"
+export JIRA_EMAIL="your-email@example.com"
+export JIRA_API_TOKEN="your-api-token"
+```
+
+Pass one or more project keys and keywords:
+
+```bash
+python find_related_stories.py --project APP --project CORE "login" "account recovery"
+```
+
+The script prints each matching ticket key on its own line, followed by the total count. Keep the
+API token in the environment rather than a command-line argument.
+
 View all command-line options:
 
 ```powershell
