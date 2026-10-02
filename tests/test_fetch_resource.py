@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 import types
@@ -22,6 +23,7 @@ from fetch_resource import (
     ConfigError,
     build_url,
     fetch_class_sources,
+    main,
     write_sources_text,
 )
 
@@ -120,6 +122,26 @@ class TextOutputTests(unittest.TestCase):
                 "===== com.example.Dependency =====\n"
                 "class Dependency { String value = \"olá\"; }",
             )
+
+
+class CliTests(unittest.TestCase):
+    def test_prompts_for_password_and_uses_entered_value(self):
+        environment = {
+            "RESOURCE_DOMAIN": "domain.com",
+            "RESOURCE_VERSION": "1.0",
+            "RESOURCE_USERNAME": "user",
+            "RESOURCE_PASSWORD": "environment-password",
+        }
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch("fetch_resource.getpass.getpass", return_value="entered-password") as prompt,
+            patch("fetch_resource.fetch_class_sources", return_value=[("com.example.Example", "")]) as fetch,
+            patch("fetch_resource.write_sources_text"),
+        ):
+            self.assertEqual(main(["com.example.Example"]), 0)
+
+        prompt.assert_called_once_with("Password: ")
+        self.assertEqual(fetch.call_args.args[1].password, "entered-password")
 
 
 if __name__ == "__main__":

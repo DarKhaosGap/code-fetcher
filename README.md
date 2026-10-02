@@ -13,16 +13,17 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-Set the required connection variables:
+Set the connection variables:
 
 ```powershell
 $env:RESOURCE_DOMAIN = "repo.example.com"
 $env:RESOURCE_VERSION = "27.1.0"
 $env:RESOURCE_USERNAME = "your-username"
-$env:RESOURCE_PASSWORD = "your-password"
 ```
 
 `RESOURCE_PROTOCOL` is optional and defaults to `https`.
+When the script runs, it prompts for the password using hidden terminal input; the password does
+not need to be stored in an environment variable.
 
 The domain may include a safe base path. For example, setting
 `$env:RESOURCE_DOMAIN = "repo.example.com/other"` places that base path before the version and

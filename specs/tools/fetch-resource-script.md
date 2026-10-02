@@ -9,8 +9,8 @@ writes the successful responses to a text file.
 - Compose URLs from a protocol, domain, version, and a full dotted class name.
 - Allow the domain to include a safe base path, such as `domain.com/other`, before the version
   and class resource path.
-- Read protocol, domain, version, and credentials from environment variables, with CLI overrides for
-  protocol, domain, version, timeout, and output path.
+- Read protocol, domain, version, and username from environment variables, with CLI overrides for
+  protocol, domain, version, timeout, and output path; prompt securely for the password at runtime.
 - Convert `com.example.Example` to `com/example/Example` and preserve a terminal `.java` suffix.
 - Ensure every requested resource URL ends with `.java`, adding the suffix when the resource path
   does not already include it.
@@ -24,7 +24,8 @@ writes the successful responses to a text file.
   packages such as `java.*`, `javax.*`, `sun.*`, and `com.sun.*`.
 - Continue with a warning when a dependency cannot be fetched; a root-class failure remains fatal.
 - Write successful responses to one UTF-8 text file with fully qualified class-name headers.
-- Use HTTP basic authentication and an explicit request timeout.
+- Use HTTP basic authentication and an explicit request timeout; never echo or require storing the
+  password in an environment variable for CLI use.
 - Return non-zero status with a message on stderr for configuration, root request, or output
   errors. Never log or echo credentials.
 
@@ -38,7 +39,8 @@ writes the successful responses to a text file.
 
 ## Implementation
 - `load_config()` resolves `RESOURCE_PROTOCOL`, `RESOURCE_DOMAIN`, `RESOURCE_VERSION`,
-  `RESOURCE_USERNAME`, and `RESOURCE_PASSWORD`, defaulting the protocol to `https`.
+  `RESOURCE_USERNAME`, and `RESOURCE_PASSWORD`, defaulting the protocol to `https`; a password
+  supplied by the CLI prompt overrides the environment value.
 - `class_name_to_resource_path()` validates dotted class names and converts them to slash-separated
   resource paths.
 - `build_url()` quotes each URL path segment and accepts only `http` and `https` protocols.
@@ -56,7 +58,8 @@ writes the successful responses to a text file.
 - `write_sources_text()` writes the combined source text with UTF-8 encoding and reports filesystem
   errors through `ConfigError`.
 - `argparse` accepts the class name as a positional argument, `--source-folder` as the optional
-  local project root, and `--output` defaults to `dependencies.txt`.
+  local project root, and `--output` defaults to `dependencies.txt`; the CLI obtains the password
+  with hidden terminal input at runtime.
 - The CLI reports the number of written class sources and the output path on stdout.
 
 ## Validation
@@ -66,11 +69,14 @@ writes the successful responses to a text file.
 - Text output checks passed for class-name headers, multiple source bodies, and UTF-8 content.
 - Unit tests cover plain-host and base-path URL composition plus unsafe-domain rejection.
 - Unit tests cover adding `.java` to extensionless resource paths and preserving an existing suffix.
-- `python -m unittest discover -s tests -v` passed with six tests.
+- `python -m unittest discover -s tests -v` passed with eight tests, including a CLI test proving
+  that the entered password overrides `RESOURCE_PASSWORD`.
+- `python -m py_compile fetch_resource.py` passed after the runtime prompt change.
 - Unit tests verify recursive local lookup beneath `src/main/java`, local dependency loading, and
   remote fallback only for a dependency absent from the supplied folder.
 - `git diff --check` passed.
 - CLI help could not be executed because `requests` was not installed in the validation environment.
+- README setup instructions now omit `RESOURCE_PASSWORD` and describe the hidden runtime prompt.
 - No real network call was executed.
 
 ## Status

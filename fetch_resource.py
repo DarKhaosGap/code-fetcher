@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import os
 import re
 import sys
@@ -43,6 +44,7 @@ def load_config(
     protocol: str | None = None,
     domain: str | None = None,
     version: str | None = None,
+    password: str | None = None,
 ) -> Config:
     """Build the configuration from environment variables and optional overrides."""
     resolved = {
@@ -50,7 +52,7 @@ def load_config(
         "domain": domain or os.getenv("RESOURCE_DOMAIN", ""),
         "version": version or os.getenv("RESOURCE_VERSION", ""),
         "username": os.getenv("RESOURCE_USERNAME", ""),
-        "password": os.getenv("RESOURCE_PASSWORD", ""),
+        "password": password if password is not None else os.getenv("RESOURCE_PASSWORD", ""),
     }
 
     missing = [name for name, value in resolved.items() if not value.strip()]
@@ -249,8 +251,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Fetch a versioned resource using basic authentication. Protocol, domain, version "
-            "and credentials are read from the RESOURCE_PROTOCOL, RESOURCE_DOMAIN, "
-            "RESOURCE_VERSION, RESOURCE_USERNAME and RESOURCE_PASSWORD environment variables."
+            "and username are read from the RESOURCE_PROTOCOL, RESOURCE_DOMAIN, "
+            "RESOURCE_VERSION and RESOURCE_USERNAME environment variables. The password is "
+            "prompted for when the script runs."
         )
     )
     parser.add_argument(
@@ -286,7 +289,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        config = load_config(args.protocol, args.domain, args.version)
+        password = getpass.getpass("Password: ")
+        config = load_config(args.protocol, args.domain, args.version, password)
         sources = fetch_class_sources(
             args.class_name, config, args.timeout, args.source_folder
         )
