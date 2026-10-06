@@ -1,7 +1,7 @@
 # Fetch Resource
 
-A Python CLI that fetches a Java class and its direct project dependencies, then writes the
-successful responses to a text file.
+A Python CLI that fetches a Java class and its project dependencies up to a chosen depth, then
+writes the successful responses to a text file.
 
 ## Setup
 
@@ -33,10 +33,18 @@ class resource path, producing a URL such as
 ## Usage
 
 Pass a fully qualified class name. The script converts package separators to `/`, fetches the
-class and its direct project imports, and writes the results to a text file:
+class and its direct project imports by default, and writes the results to a text file:
 
 ```powershell
 python .\fetch_resource.py com.example.Example --output dependencies.txt
+```
+
+Use `--depth` to include transitive imports. Depth 1 (the default) includes direct imports;
+depth 2 also includes imports of those classes. Depth must be a positive integer. Each class
+is included once, even when multiple classes import it:
+
+```powershell
+python .\fetch_resource.py com.example.Example --depth 2 --output dependencies.txt
 ```
 
 Each source is preceded by a fully qualified class-name header. Missing dependency requests produce
@@ -44,7 +52,7 @@ warnings; failure to fetch the requested root class exits with an error.
 
 To prefer sources from a local project, pass its root folder. The script searches recursively, so
 standard layouts such as `src/main/java/com/example/Example.java` are supported. Classes that are
-not present locally continue to use the configured remote endpoint:
+not present locally continue to use the configured remote endpoint at every depth:
 
 ```powershell
 python .\fetch_resource.py com.example.Example `
@@ -82,7 +90,7 @@ python .\fetch_resource.py --help
 
 ## Configuration Overrides
 
-Protocol, domain, version, timeout, and output path can also be supplied on the command line:
+Protocol, domain, version, timeout, depth, and output path can also be supplied on the command line:
 
 ```powershell
 python .\fetch_resource.py `
@@ -91,6 +99,7 @@ python .\fetch_resource.py `
   --domain repo.example.com/other `
   --version 27.1.0 `
   --timeout 30 `
+  --depth 2 `
   --source-folder C:\Projects\example `
   --output dependencies.txt
 ```

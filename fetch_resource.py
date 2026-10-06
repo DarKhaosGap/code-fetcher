@@ -189,28 +189,38 @@ def fetch_class_sources(
     config: Config,
     timeout: float = DEFAULT_TIMEOUT,
     source_folder: str | None = None,
+    depth: int = 1,
 ) -> list[tuple[str, str]]:
-    """Load a class and its direct project dependencies locally or remotely."""
+    """Load a class and its project dependencies through the requested depth."""
+    if type(depth) is not int or depth < 1:
+        raise ConfigError("Depth must be a positive integer.")
+
     root_body = read_local_class_source(class_name, source_folder)
     if root_body is None:
         root_body = fetch_resource(class_name_to_resource_path(class_name), config, timeout)
     sources = [(class_name, root_body)]
     fetched_names = {class_name}
 
-    for dependency_name in extract_imports(sources[0][1]):
-        if dependency_name in fetched_names:
-            continue
-        fetched_names.add(dependency_name)
-        try:
-            dependency_body = read_local_class_source(dependency_name, source_folder)
-            if dependency_body is None:
-                dependency_body = fetch_resource(
-                    class_name_to_resource_path(dependency_name), config, timeout
-                )
-        except (ConfigError, requests.RequestException) as exc:
-            print(f"Warning: could not fetch dependency {dependency_name}: {exc}", file=sys.stderr)
-            continue
-        sources.append((dependency_name, dependency_body))
+    current_level = sources
+    for _ in range(depth):
+        next_level = []
+        for _, body in current_level:
+            for dependency_name in extract_imports(body):
+                if dependency_name in fetched_names:
+                    continue
+                fetched_names.add(dependency_name)
+                try:
+                    dependency_body = read_local_class_source(dependency_name, source_folder)
+                    if dependency_body is None:
+                        dependency_body = fetch_resource(
+                            class_name_to_resource_path(dependency_name), config, timeout
+                        )
+                except (ConfigError, requests.RequestException) as exc:
+                    print(f"Warning: could not fetch dependency {dependency_name}: {exc}", file=sys.stderr)
+                    continue
+                next_level.append((dependency_name, dependency_body))
+        sources.extend(next_level)
+        current_level = next_level
 
     return sources
 
@@ -275,6 +285,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=f"Request timeout in seconds (default: {DEFAULT_TIMEOUT})",
     )
     parser.add_argument(
+        "--depth",
+        type=int,
+        default=1,
+        help="Dependency levels to fetch (positive integer, default: 1)",
+    )
+    parser.add_argument(
         "--output",
         default="dependencies.txt",
         help="Output text path (default: dependencies.txt)",
@@ -283,7 +299,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--source-folder",
         help="Project folder to search recursively for Java sources before fetching remotely",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.depth < 1:
+        parser.error("--depth must be a positive integer")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -292,7 +311,7 @@ def main(argv: list[str] | None = None) -> int:
         password = getpass.getpass("Password: ")
         config = load_config(args.protocol, args.domain, args.version, password)
         sources = fetch_class_sources(
-            args.class_name, config, args.timeout, args.source_folder
+            args.class_name, config, args.timeout, args.source_folder, args.depth
         )
         write_sources_text(sources, args.output)
         print(f"Wrote {len(sources)} class source(s) to {args.output}")
